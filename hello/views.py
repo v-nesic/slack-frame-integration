@@ -28,4 +28,4 @@ def db(request):
     return render(request, 'db.html', {'greetings': greetings})
 
 def slack(request):
-    return HttpResponse('Hello from Python!')
+    return HttpResponse('{"text":"Hello from Python!"}')
