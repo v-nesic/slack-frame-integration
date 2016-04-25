@@ -30,4 +30,4 @@ def db(request):
 
 @csrf_exempt
 def slack(request):
-    return HttpResponse('{"text":"Hello from Python!"}')
+    return HttpResponse('{"text":"http://fra.me"}', content_type='application/json')
