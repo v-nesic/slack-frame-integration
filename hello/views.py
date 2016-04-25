@@ -1,3 +1,4 @@
+import os
 import requests
 
 from django.shortcuts import render
@@ -7,9 +8,12 @@ from .models import Greeting
 
 # Create your views here.
 def index(request):
-	r = requests.get('http://httpbin.org/status/418')
-	print r.text
-	return HttpResponse('<pre>' + r.text + '</pre>')
+	times = int(os.environ.get('TIMES',3))
+	response = request.GET.get('q', 'Hello! ' * times)
+	return HttpResponse(response)
+	#r = requests.get('http://httpbin.org/status/418')
+	#print r.text
+	#return HttpResponse('<pre>' + r.text + '</pre>')
     # return HttpResponse('Hello from Python!')
     # return render(request, 'index.html')
 
@@ -23,3 +27,5 @@ def db(request):
 
     return render(request, 'db.html', {'greetings': greetings})
 
+def slack(request)
+    return HttpResponse('Hello from Python!')
