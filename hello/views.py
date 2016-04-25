@@ -3,6 +3,7 @@ import requests
 
 from django.shortcuts import render
 from django.http import HttpResponse
+from django.views.decorators.csrf import csrf_exempt
 
 from .models import Greeting
 
@@ -27,5 +28,6 @@ def db(request):
 
     return render(request, 'db.html', {'greetings': greetings})
 
+@csrf_exempt
 def slack(request):
     return HttpResponse('{"text":"Hello from Python!"}')
