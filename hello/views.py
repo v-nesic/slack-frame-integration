@@ -30,4 +30,7 @@ def db(request):
 
 @csrf_exempt
 def slack(request):
-    return HttpResponse('{"text":"http://fra.me"}', content_type='application/json')
+	if request.POST.get('token', '') == 'Cb7u0tsogeepryhYkMZwElC5'
+		return HttpResponse('{"text":"http://fra.me"}', content_type='application/json')
+	else
+		return HttpResponse('You can set up your FRAME account at http://fra.me')
