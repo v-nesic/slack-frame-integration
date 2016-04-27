@@ -4,6 +4,8 @@ import requests
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.core.urlresolvers import reverse
+from django.conf.urls import url
 
 from .models import Greeting
 
@@ -30,10 +32,11 @@ def db(request):
 
 @csrf_exempt
 def slack(request):
-	if request.POST.get('token', '') == 'Cb7u0tsogeepryhYkMZwElC5':
-		return HttpResponse('{"text":"http://fra.me"}', content_type='application/json')
-	else:
-		return HttpResponse('You can set up your FRAME account at http://fra.me')
+	return HttpResponse(("https://" if request.is_secure() else "http://") + request.get_host() + reverse('slack-cmd-frame'))
+	#if request.POST.get('token', '') == 'Cb7u0tsogeepryhYkMZwElC5':
+	#	return HttpResponse('{"text":"http://fra.me"}', content_type='application/json')
+	#else:
+	#	return HttpResponse('You can set up your FRAME account at http://fra.me')
 
 def frame(request, mapping):
 	return HttpResponse('You have requested this mapping: ' + mapping)

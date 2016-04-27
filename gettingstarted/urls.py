@@ -9,10 +9,18 @@ import hello.views
 # url(r'^$', 'gettingstarted.views.home', name='home'),
 # url(r'^blog/', include('blog.urls')),
 
+urlpatterns_slackcmd = [
+	url(r'frame/$', hello.views.slack, name='slack-cmd-frame')
+]
+
+urlpatterns_frameinstance = [
+	url(r'run/([^/]+)', hello.views.frame, name='slack-cmd-run')
+]
+
 urlpatterns = [
     url(r'^$', hello.views.index, name='index'),
     url(r'^db', hello.views.db, name='db'),
-	url(r'^slackframecmd/$', hello.views.slack, name='Slack\'s /frame commend implementation'),
-	url(r'^frame/([^/]+)', hello.views.frame, name='Frame instance mapping'),
+	url(r'^slack/cmd/', include(urlpatterns_slackcmd), name='slack-cmd'),
+	url(r'^frame/instance/', include(urlpatterns_frameinstance), name='frame-instance'),
     url(r'^admin/', include(admin.site.urls)),
 ]
