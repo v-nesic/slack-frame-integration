@@ -1,5 +1,5 @@
 {
-	"text": "{% if request.is_secure %}https{% else %}http{%endif%}://{{request.get_host}}{% url 'frame-instance-run' 'x' %}",
+	"text": "{% if request.is_secure %}https{% else %}http{%endif%}://{{request.get_host}}{% url 'frame-instance-run' 'ljW8ZlGr' %}?url={{request.POST.text}}",
 	"attachments": [
 		{
 			"text":"Click at the returned URL in order to open your file in FRAME instance"
