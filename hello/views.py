@@ -1,3 +1,4 @@
+import json
 import os
 import requests
 
@@ -32,7 +33,9 @@ def db(request):
 
 @csrf_exempt
 def slack(request):
-	return HttpResponse(("https://" if request.is_secure() else "http://") + request.get_host() + reverse('slack-cmd-frame'))
+	return render(request, 'slack-cmd-frame.json', content_type='application/json')
+	#return HttpResponse(json.dumps(response), content_type='application/json')
+	#return HttpResponse(("https://" if request.is_secure() else "http://") + request.get_host() + reverse('slack-cmd-frame'))
 	#if request.POST.get('token', '') == 'Cb7u0tsogeepryhYkMZwElC5':
 	#	return HttpResponse('{"text":"http://fra.me"}', content_type='application/json')
 	#else:
