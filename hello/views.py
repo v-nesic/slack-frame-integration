@@ -34,3 +34,6 @@ def slack(request):
 		return HttpResponse('{"text":"http://fra.me"}', content_type='application/json')
 	else:
 		return HttpResponse('You can set up your FRAME account at http://fra.me')
+
+def frame(request, mapping):
+	return HttpResponse('You have requested this mapping: ' + mapping)

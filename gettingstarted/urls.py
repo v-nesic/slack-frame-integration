@@ -12,6 +12,7 @@ import hello.views
 urlpatterns = [
     url(r'^$', hello.views.index, name='index'),
     url(r'^db', hello.views.db, name='db'),
-	url(r'^slack', hello.views.slack, name='slack'),
+	url(r'^slackframecmd/$', hello.views.slack, name='Slack\'s /frame commend implementation'),
+	url(r'^frame/([^/]+)', hello.views.frame, name='Frame instance mapping'),
     url(r'^admin/', include(admin.site.urls)),
 ]
