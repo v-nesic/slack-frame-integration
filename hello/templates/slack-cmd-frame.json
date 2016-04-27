@@ -1,0 +1,3 @@
+{
+	"text": "{% if request.is_secure %}https{% else %}http{%endif%}://{{request.get_host}}{% url 'frame-instance-run' 'x' %}"
+}

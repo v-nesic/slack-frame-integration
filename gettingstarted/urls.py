@@ -14,7 +14,7 @@ urlpatterns_slackcmd = [
 ]
 
 urlpatterns_frameinstance = [
-	url(r'run/([^/]+)', hello.views.frame, name='slack-cmd-run')
+	url(r'run/([^/]+)', hello.views.frame, name='frame-instance-run')
 ]
 
 urlpatterns = [
