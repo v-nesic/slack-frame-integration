@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+</head>
+
+<body>
+
+<div>Please wait, loading...</div>
+
+<script src="https://app.fra.me/embed/frame_app.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+<script>
+
+// create frame app object
+var frameApp = new frameApi.FrameApp({
+	hash: '{{mapping}}', // required
+	fileName: '{{file_url|safe}}',
+	// fileName: URL to a file to open on launch // optional
+	// userData: A string containing user data, // optional
+	// maxDuration: Maximum session duration (minutes), // optional
+	// showErrors: Flag used to prevent player from showing errors // optional
+	// hidePlayerFooter: Flag used to hide footer of the player // optional
+	// headerHeight: Inserts header above player for custom elements. // optional
+	// You can place elements in the header by using id='mf2-header'
+	// poolId: ID of a desired pool // optional
+	// autostart: Flag used to start a session when page is loaded // optional
+});
+
+// bind events 
+frameApp.bind(FrameApp.EVENT_ERROR, function(e) {
+	alert(e.message);
+});
+frameApp.bind(FrameApp.EVENT_LOADING_STARTED, function() {
+	console.info('Loading started');
+});
+frameApp.bind(FrameApp.EVENT_LOADING_DONE, function() {
+	console.info('Loading done.');
+});
+frameApp.bind(FrameApp.EVENT_CLOSED, function() {
+	console.info('Session closed.');
+});
+frameApp.bind(FrameApp.EVENT_BROADCAST_SESSION_ID, function(sessionId) {
+	console.info('Broadcast session id: ' + sessionId);
+});
+frameApp.bind(FrameApp.EVENT_BROADCAST_SHARE_URL, function(url) {
+	console.info('Broadcast share url: ' + url);
+});
+frameApp.bind(FrameApp.EVENT_TERMINAL_SHOWN, function() {
+	console.info('Terminal shown!');
+});
+frameApp.bind(FrameApp.EVENT_OPEN_URL, function(url) {
+	console.info("Open url: " + url);
+});
+
+$(document).ready(function() {
+	frameApp.bind(FrameApp.EVENT_READY, function() {
+		// start new session, but don't connect - we'll do it using connectNewApplication()
+		console.log("Starting session");
+		frameApp.startSession({
+			connectOnStart: true,
+			waitForInstance: true // TODO: reconsider this 
+		})
+		.then(function() {
+			console.log("Session started");
+		})
+		.catch(function(error) {
+			console.error("Failed to start session: " + error.toString());
+		});
+		// Called each 3 seconds to return basic session parameters
+		setInterval(function() {
+			console.log("Getting session id: " + frameApp.sessionId);
+			frameApp.getCapacityInfoAsync().then(function(capacityInfo) {
+				console.log("Capacity info received:");
+				console.log(capacityInfo);
+				var props = ['available_instances', 'running_instances', 'coming_soon'];
+				var stats = [];
+				for(var i = 0; i < props.length; i++) {
+					var property = props[i];
+					stats.push(property + ': ' + capacityInfo[property]);
+				}
+				$('#capacity_info').html(stats.join('<br>'));
+			});
+		}, 3000);
+	});
+});
+
+//$(document).unload(function() {
+//	try {
+//		frameApp.closeSession();
+//		console.log("Session closed");
+//	} catch(error) {
+//		console.log("Failed to close session: " + error.toString());
+//	}
+//});
+
+</script>
+
+</body>
+</html>
