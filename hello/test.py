@@ -7,7 +7,7 @@ from .slackcmd import slack_cmd_post_args
 slackcmdtemplates = [
     {
         'token': 'Cb7u0tsogeepryhYkMZwElC5',
-        'team_id': 'neske-pilot-project',
+        'team_id': 'T10V1PSR4',
         'team_domain': 'https://neske-pilot-project.slack.com',
         'channel_id': 'C2147483705',
         'channel_name': 'test',
@@ -72,3 +72,4 @@ class SlackCmdTest(TestCase):
     def test_slack_cmd_frame_help(self):
         response = Client().post(self.slack_cmd_frame_url, get_slack_cmd_context('help'))
         self.assertEqual(200, response.status_code)
+        self.assertEqual('text/plain', response['Content-Type'])
