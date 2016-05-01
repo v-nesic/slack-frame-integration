@@ -73,8 +73,10 @@ class SlackCmdFrameAuthenticationException(SlackCmdException):
 
 
 def authenticate_slack_cmd_frame_args(slack_cmd_args):
-    if slack_cmd_args['team_id'] != 'neske-pilot-project' or slack_cmd_args['token'] != 'Cb7u0tsogeepryhYkMZwElC5':
-        raise SlackCmdFrameAuthenticationException('/frame')
+    if slack_cmd_args['team_id'] != 'neske-pilot-project':
+        raise SlackCmdFrameAuthenticationException('FRAME team_id = {0}'.format(slack_cmd_args['team_id']))
+    if slack_cmd_args['token'] != 'Cb7u0tsogeepryhYkMZwElC5':
+        raise SlackCmdFrameAuthenticationException('FRAME token = {0}'.format(slack_cmd_args['token']))
 
 
 class SlackCmdFrameFileError(BaseException):
