@@ -155,6 +155,8 @@ def handle_slack_cmd_frame(slack_cmd_args):
     authenticate_slack_cmd_frame_args(slack_cmd_args)
     if slack_cmd_args['text'] == 'help':
         return HttpResponse("Help text")
+    else:
+        return HttpResponse(json.dumps(slack_cmd_args))
 
 
 def handle_request(request, command):
