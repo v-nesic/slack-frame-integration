@@ -167,7 +167,8 @@ def handle_request(request, command):
             raise SlackCmdRequestException("Posted command arg {0} doesn't match url command arg {1}".format(slack_cmd_args['command'], command))
 
         if '/frame' == command:
-            return handle_slack_cmd_frame(slack_cmd_args)
+            return HttpResponse(json.dumps(request.POST))
+            # return handle_slack_cmd_frame(slack_cmd_args)
         else:
             raise SlackCmdRequestException('Unknown command {0}'.format(command))
 
