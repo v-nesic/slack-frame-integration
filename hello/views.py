@@ -16,7 +16,7 @@ from functools import wraps
 
 from .crypto import FrameCypher
 from .models import Greeting
-from .slackcmd import handle_request as handle_slackcmd
+from .slackcmd import handleRequest as handleSlackSlashCmd
 
 # Create your views here.
 def index(request):
@@ -58,5 +58,5 @@ def frame(request, token):
 
 
 @csrf_exempt
-def slackcmd(request, command):
-    return handle_slackcmd(request, command)
+def slackSlashCmdRequest(request, command):
+    return handleSlackSlashCmd(request, command)

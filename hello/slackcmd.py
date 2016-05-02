@@ -19,8 +19,8 @@ from .crypto import FrameCypher
 from .models import Greeting
 
 
-###############################################################################
-# Base class for handling Slack command exceptions
+###############################################################################################
+# SlackCmd exceptions
 class SlackCmdException(BaseException):
     def __init__(self, error=''):
         self.error = error
@@ -29,175 +29,137 @@ class SlackCmdException(BaseException):
         return self.error
 
 
-###############################################################################
-# Generic Slack command validation
-###############################################################################
-# Global variable (shared between this code and test) listing required slack cmd arguments
-slack_cmd_post_args = [
-    'token', 'team_id', 'team_domain', 'channel_id', 'channel_name',
-    'user_id', 'user_name', 'command', 'text', 'response_url'
-]
-
-
 class SlackCmdRequestException(SlackCmdException):
     def __init__(self, error):
         SlackCmdException.__init__(self, "SlackCmdRequestException: {0}".format(error))
 
 
-def validate_slack_cmd_argument(arg, arg_value):
-    if arg != 'text' and arg_value == '':
-        raise SlackCmdRequestException('POST arg {0} contains invalid value {1}'.format(arg, arg_value))
-
-
-def validate_slack_cmd_requst(request):
-    slack_cmd_args = {}
-    for arg in slack_cmd_post_args:
-        slack_cmd_args[arg] = request.POST.get(arg, None)
-
-    for arg in slack_cmd_post_args:
-        if slack_cmd_args[arg] is None:
-            raise SlackCmdRequestException('Missing mandatory POST arg {0}'.format(arg))
-        else:
-            validate_slack_cmd_argument(arg, slack_cmd_args[arg])
-
-    return slack_cmd_args
-
-
-###############################################################################
-# Slack team vs. token authentication
-###############################################################################
-# Exception class for handling authentication errors such as invalid (groupId, token) pair
 class SlackCmdFrameAuthenticationException(SlackCmdException):
     def __init__(self, error=''):
         SlackCmdException.__init__(self, "SlackCmdFrameAuthenticationException: {0}".format(error))
 
 
-def authenticate_slack_cmd_frame_args(slack_cmd_args):
-    if slack_cmd_args['team_id'] != 'T10V1PSR4':
-        raise SlackCmdFrameAuthenticationException('FRAME team_id = {0}'.format(slack_cmd_args['team_id']))
-    if slack_cmd_args['token'] != 'Cb7u0tsogeepryhYkMZwElC5':
-        raise SlackCmdFrameAuthenticationException('FRAME token = {0}'.format(slack_cmd_args['token']))
-
-
-class SlackCmdFrameFileError(BaseException):
-    error = ''
-
+class SlackCmdFrameFileError(SlackCmdException):
     def __init__(self, error):
-        self.error = error
+        SlackCmdException.__init__(self, 'SlackCmdFrameFileError: {0}'.format(error))
 
-    def get_error(self):
-        return self.error
 
+class SlackCmdFrameUnsupportedFileTypeError(SlackCmdException):
+    def __init__(self, error):
+        SlackCmdException.__init__(self, 'SlackCmdFrameUnsupportedFileTypeError: {0}'.format(error))
+
+
+###############################################################################################
+# Helper class for getting HTTP header rather than complete file
 class HeaderRequest(urllib2.Request):
     def get_method(self):
         return "HEAD"
 
 
-def validate_url_format(url):
-    validate = URLValidator()
-    validate(url)
+###############################################################################################
+# Generic Slack command class
+class SlackCmd:
+    slack_cmd_post_args = [
+        'token', 'team_id', 'team_domain', 'channel_id', 'channel_name',
+        'user_id', 'user_name', 'command', 'text', 'response_url'
+    ]
+
+    def validateArgument(self, arg, arg_value):
+        if arg != 'text' and arg_value == '':
+            raise SlackCmdRequestException('POST arg {0} contains invalid value {1}'.format(arg, arg_value))
 
 
-def file_type(file):
-    try:
-        validate_url_format(file)
-        response = urllib2.urlopen(HeaderRequest(file))
-        if response.getcode() == 200:
+    def getCommandAndArgs(self, request):
+        slack_cmd_args = {}
+        for arg in self.slack_cmd_post_args:
+            slack_cmd_args[arg] = request.POST.get(arg, None)
+
+        for arg in self.slack_cmd_post_args:
+            if slack_cmd_args[arg] is None:
+                raise SlackCmdRequestException('Missing mandatory POST arg {0}'.format(arg))
+            else:
+                self.validateArgument(arg, slack_cmd_args[arg])
+
+        return slack_cmd_args['command'], slack_cmd_args
+
+
+###############################################################################################
+# /frame command class
+class SlackCmdFrame(SlackCmd):
+    def authenticate(self, username, token):
+        if username == 'neske-pilot-project' and token == 'Cb7u0tsogeepryhYkMZwElC5':
+            pass
+        elif username == 'test.username' and token == 'test.token':
+            pass
+        else:
+            raise SlackCmdFrameAuthenticationException('Wrong username,token pair ({0},{1})'.format(username, token))
+
+    def validateUrl(self, url):
+        validate = URLValidator()
+        validate(url)
+
+    def getFileType(self, file):
+        try:
+            self.validateUrl(file)
+            response = urllib2.urlopen(HeaderRequest(file))
+            if response.getcode() != 200:
+                raise SlackCmdFrameFileError('ERROR {0} received while trying to open requested file'.format(response.getcode()))
             return response.info().getheader('content-type')
+        except ValidationError, e:
+            raise SlackCmdFrameFileError("Requested file URL is invalid")
+        except urllib2.HTTPError, e:
+            raise SlackCmdFrameFileError('HTTP ERROR {0} received while trying to open requested file'.format(e.code))
+        except:
+            # Catch-all exception is OK here because it means that we can't access requested file
+            # and we don't really care why
+            raise SlackCmdFrameFileError('Unknown ERROR while trying to open requested file')
+
+    def getFileMappingAndType(self, file):
+        # Check file type
+        type = self.getFileType(file)
+        if 'text/' == type[:5]:
+            return 'ljW8ZlGr', 'TEXT'
+        elif 'image/' == type[:6]:
+            raise SlackCmdFrameUnsupportedFileTypeError('IMAGE') # TODO: add mapping for this one too
         else:
-            raise SlackCmdFrameFileError('ERROR {0} received while trying to open requested file'.format(response.getcode()))
-    except ValidationError, e:
-        raise SlackCmdFrameFileError("Requested file URL is invalid")
-    except urllib2.HTTPError, e:
-        raise SlackCmdFrameFileError('HTTP ERROR {0} received while trying to open requested file'.format(e.code))
-    except:
-        # Catch-all exception is OK here because it means that
-        # we can't access requested file and we don't really
-        # care why
-        raise SlackCmdFrameFileError('Unknown ERROR while trying to open requested file')
+            raise SlackCmdFrameUnsupportedFileTypeError(type)
 
+    def handleFile(self, request, mapping, file, file_type):
+        # Calculate URL parts...
+        schema = 'https://' if request.is_secure() else 'http://'
+        host = request.get_host()
+        path = reverse('frame-instance-run', args=[FrameCypher().encrypt(':'.join([mapping, file]))])
 
-def slack_cmd_error_invalid_file_type_message(type):
-    return SlackCmdFrameFileError("File type {0} is not supported".format(type))
+        # ...merge them into URL...
+        url = ''.join([schema, host, path])
 
-
-def get_file_mapping_and_type(file):
-    # Check file type
-    type = file_type(file)
-    if 'text/' == type[:5]:
-        return 'ljW8ZlGr', 'TEXT'
-    elif 'image/' == type[:6]:
-        raise slack_cmd_error_invalid_file_type_message('IMAGE') # TODO: add mapping for this one too
-    else:
-        raise slack_cmd_error_invalid_file_type_message(type)
-
-
-def slack_frame_response(request, mapping, file, file_type):
-    # Calculate URL parts...
-    schema = 'https://' if request.is_secure() else 'http://'
-    host = request.get_host()
-    path = reverse('frame-instance-run', args=[FrameCypher().encrypt(':'.join([mapping, file]))])
-
-    # ...merge them into URL...
-    url = ''.join([schema, host, path])
-
-    # ...and combine everything into a signle JSON response
-    return {
-        'text': url,
-        'attachments': {
-            'text': 'Click at the returned URL in order to open your file in FRAME instance',
-            'url': url,
-            'file_type': file_type
+        # ...and combine everything into a signle JSON response
+        return {
+            'text': url,
+            'attachments': {
+                'text': 'Click at the returned URL in order to open your file in FRAME instance',
+                'url': url,
+                'file_type': file_type
+            }
         }
-    }
 
-def handle_slack_cmd_frame(slack_cmd_args):
-    authenticate_slack_cmd_frame_args(slack_cmd_args)
-    if slack_cmd_args['text'] == 'help':
-        return HttpResponse("Help text")
-    else:
-        return HttpResponse(json.dumps(slack_cmd_args))
-
-
-def handle_request(request, command):
-    try:
-        slack_cmd_args = validate_slack_cmd_requst(request)
-
-        if slack_cmd_args['command'] != command:
-            raise SlackCmdRequestException("Posted command arg {0} doesn't match url command arg {1}".format(slack_cmd_args['command'], command))
-
-        if '/frame' == command:
-            return HttpResponse(json.dumps(request.POST))
-            # return handle_slack_cmd_frame(slack_cmd_args)
+    def handleCommand(self, username, arguments):
+        self.authenticate(username, arguments['token'])
+        if arguments['text'].lower() == 'help':
+            return HttpResponse("Help text")
         else:
-            raise SlackCmdRequestException('Unknown command {0}'.format(command))
+            return HttpResponse(json.dumps(arguments))
 
-    except SlackCmdRequestException, e:
+
+def handleRequest(request, username):
+    try:
+        command, arguments = SlackCmd().getCommandAndArgs(request)
+        if command == '/frame':
+            return SlackCmdFrame().handleCommand(username, arguments)
+        else:
+            raise SlackCmdRequestException('Unknown command {0}'.format(arguments['command']))
+
+    except (SlackCmdRequestException, SlackCmdFrameFileError, SlackCmdFrameUnsupportedFileTypeError), e:
         return HttpResponseBadRequest('400 BAD REQUEST {0}'.format(e.get_error()))
-
     except SlackCmdFrameAuthenticationException, e:
         return HttpResponseForbidden('403 FORBIDDEN {0}'.format(e.get_error()))
-
-        # Get requested file URL
-        #file = request.POST.get('text', 'https://www.google.rs/images/nav_logo242.png')
-        #file = request.POST.get('text', 'https://www.google.com')
-        #file = request.POST.get('text', 'https://www.google.com/xpy')
-        #file = request.POST.get('text', 'xpy')
-
-        # Get file mapping
-        #mapping, file_type = get_file_mapping_and_type(file)
-
-        #return HttpResponse(json.dumps(slack_frame_response(request, mapping, file, file_type)), content_type='application/json')
-
-    #except SlackCmdFrameFileError:
-        #return HttpResponseBadRequest('400 BAD REQUEST')
-
-
-    #return HttpResponse(json.dumps(response), content_type='application/json')
-    #return HttpResponse(("https://" if request.is_secure() else "http://") + request.get_host() + reverse('slack-cmd-frame'))
-    #if request.POST.get('token', '') == 'Cb7u0tsogeepryhYkMZwElC5':
-    #    return HttpResponse('{"text":"http://fra.me"}', content_type='application/json')
-    #else:
-    #    return HttpResponse('You can set up your FRAME account at http://fra.me')
-
-

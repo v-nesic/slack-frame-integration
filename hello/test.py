@@ -1,14 +1,20 @@
 from django.core.urlresolvers import resolve
+from django.core.urlresolvers import Resolver404
+from django.core.urlresolvers import reverse
 from django.test import Client
 from django.test import TestCase
-from .views import slackcmd
-from .slackcmd import slack_cmd_post_args
+from slackcmd import SlackCmd
+from slackcmd import SlackCmdFrame
 
-slackcmdtemplates = [
-    {
-        'token': 'Cb7u0tsogeepryhYkMZwElC5',
+import hello.views
+
+class SlackCmdTest(TestCase):
+    url_template = '/slack/{0}/slash-cmd'
+    test_url = url_template.format('test.username')
+    cmd_template = {
+        'token': 'test.token',
         'team_id': 'T10V1PSR4',
-        'team_domain': 'https://neske-pilot-project.slack.com',
+        'team_domain': 'neske-pilot-project',
         'channel_id': 'C2147483705',
         'channel_name': 'test',
         'user_id': 'U2147483697',
@@ -17,59 +23,64 @@ slackcmdtemplates = [
         'text': '',
         'response_url': 'https://localhost:5000/slackcmdresponse'
     }
-]
 
+    def getSlackCmdPath(self, username):
+        return reverse('slack-slash-cmd', args=[username])
 
-def get_slack_cmd_context(text='', template_no=0, use_fields=None, omit_fields=None):
-    context = dict()
-    if use_fields == None:
-        use_fields = []
-        for key in slackcmdtemplates[template_no]:
-            use_fields.append(key)
-    for key in use_fields:
-        if omit_fields is None or key not in omit_fields:
-            context[key] = slackcmdtemplates[template_no][key] if key != 'text' else text
-    return context
+    def getSlackCmdContext(self, text='', use_fields=cmd_template.keys(), omit_fields=[]):
+        context = dict()
+        for key in use_fields:
+            if key not in omit_fields:
+                context[key] = self.cmd_template[key] if key != 'text' else text
+        return context
 
+    def testPathResolvesToSlackcmdWithUsernameArg(self):
+        valid_usernames = ['abcd12', 'ab-cd-12', '_ab_cd_12', 'ab.cd.12']
+        for username in valid_usernames:
+            found = resolve(self.url_template.format(username))
+            self.assertEqual(found.func, hello.views.slackSlashCmdRequest)
+            self.assertEqual(found.args[0], username, 'Parsed username doesn\'t match expected value {0}'.format(username))
 
-class SlackCmdTest(TestCase):
-    slack_cmd_frame_url = '/slack/cmd/frame/'
+    def testPathResolvesToErrorForInvalidUsername(self):
+        invalid_usernames = ['abcd?', '-abc', '.abc', '0abc', 'ab cd' ]
+        for username in invalid_usernames:
+            try:
+                found = resolve(self.url_template.format(username))
+                self.assertTrue(found is None, 'Invalid username {0} accepted'.format(username))
+            except Resolver404:
+                pass
 
-    def test_slack_cmd_frame_resloves_to_slackcmd_with_arg_frame(self):
-        found = resolve(self.slack_cmd_frame_url)
-        self.assertEqual(found.func, slackcmd)
-        self.assertEqual(found.args[0], '/frame')
-
-    def test_slack_cmd_frame_with_no_args(self):
-        response = Client().get(self.slack_cmd_frame_url)
+    def testPostNoArgsV1(self):
+        response = Client().get(self.test_url)
         self.assertEqual(400, response.status_code)
-        response = Client().post(self.slack_cmd_frame_url, {})
+
+    def testPostNoArgsV2(self):
+        response = Client().post(self.test_url, {})
         self.assertEqual(400, response.status_code)
 
-    def test_slack_cmd_frame_post_with_missing_args(self):
-        for arg in slack_cmd_post_args:
-            response = Client().post(self.slack_cmd_frame_url, get_slack_cmd_context('text', omit_fields=arg))
+    def testPostWithMissingArgs(self):
+        for arg in SlackCmd().slack_cmd_post_args:
+            response = Client().post(self.test_url, self.getSlackCmdContext('text', omit_fields=arg))
             self.assertEqual(400, response.status_code, 'Unexpected status code ({0} instead of 400) when missing {1} arg'.format(response.status_code, arg))
 
-    def test_slack_cmd_frame_with_wrong_cmd_arg(self):
-        context = get_slack_cmd_context()
+    def testUnsupportedCmd(self):
+        context = self.getSlackCmdContext()
         context['command'] = 'frame' # Mandatory slash (/) missing at the beginning
-        response = Client().post(self.slack_cmd_frame_url, context)
+        response = Client().post(self.test_url, context)
         self.assertEqual(400, response.status_code)
 
-    def test_slack_cmd_frame_with_wrong_teamid(self):
-        context = get_slack_cmd_context()
-        context['team_id'] = 'ABCDABCDABCDABCDABCDABCD'
-        response = Client().post(self.slack_cmd_frame_url, context)
-        self.assertEqual(403, response.status_code, response.content)
+    def testUnknownUsername(self):
+        response = Client().post(self.getSlackCmdPath('ABCDABCDABCDABCDABCDABCD'), self.getSlackCmdContext())
+        self.assertEqual(403, response.status_code, '{0} {1}'.format(response.status_code, response.content))
 
-    def test_slack_cmd_frame_with_wrong_token(self):
-        context = get_slack_cmd_context()
+    def testWrongToken(self):
+        context = self.getSlackCmdContext()
         context['token'] = 'ABCDABCDABCDABCDABCDABCD'
-        response = Client().post(self.slack_cmd_frame_url, context)
-        self.assertEqual(403, response.status_code, response.content)
+        response = Client().post(self.getSlackCmdPath('ABCDABCDABCDABCDABCDABCD'), context)
+        response = Client().post(self.test_url, context)
+        self.assertEqual(403, response.status_code, '{0} {1}'.format(response.status_code, response.content))
 
-    def test_slack_cmd_frame_help(self):
-        response = Client().post(self.slack_cmd_frame_url, get_slack_cmd_context('help'))
-        self.assertEqual(200, response.status_code)
-        self.assertEqual('text/plain', response['Content-Type'])
+    def testFrameCdmHelp(self):
+        response = Client().post(self.test_url, self.getSlackCmdContext('help'))
+        self.assertEqual(200, response.status_code, str(response.status_code) + response.content)
+        self.assertEqual('text/', response['Content-Type'][:5])
