@@ -59,7 +59,7 @@ class SlackCmdTest(TestCase):
         self.assertEqual(400, response.status_code)
 
     def testPostWithMissingArgs(self):
-        for arg in SlackCmd().slack_cmd_post_args:
+        for arg in self.cmd_template.keys():
             response = Client().post(self.test_url, self.getSlackCmdContext('text', omit_fields=arg))
             self.assertEqual(400, response.status_code, 'Unexpected status code ({0} instead of 400) when missing {1} arg'.format(response.status_code, arg))
 

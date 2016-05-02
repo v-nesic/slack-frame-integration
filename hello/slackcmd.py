@@ -5,9 +5,6 @@ import urllib2
 
 from django.shortcuts import render
 from django.http import HttpResponse
-from django.http import HttpResponseBadRequest
-from django.http import HttpResponseForbidden
-from django.http import HttpResponseNotFound
 from django.views.decorators.csrf import csrf_exempt
 from django.core.urlresolvers import reverse
 from django.conf.urls import url
@@ -59,34 +56,42 @@ class HeaderRequest(urllib2.Request):
 ###############################################################################################
 # Generic Slack command class
 class SlackCmd:
-    slack_cmd_post_args = [
-        'token', 'team_id', 'team_domain', 'channel_id', 'channel_name',
-        'user_id', 'user_name', 'command', 'text', 'response_url'
-    ]
+    def __init__(self, request):
+        supported_arguments = [
+            'token', 'team_id', 'team_domain', 'channel_id', 'channel_name',
+            'user_id', 'user_name', 'command', 'text', 'response_url'
+        ]
+        self.arguments = {}
+        for arg in supported_arguments:
+            self.arguments[arg] = request.POST.get(arg, None)
 
-    def validateArgument(self, arg, arg_value):
+        for arg in supported_arguments:
+            if self.arguments[arg] is not None:
+                self.validateArgument(arg, self.arguments[arg])
+            else:
+                raise SlackCmdRequestException('Missing mandatory POST arg {0}'.format(arg))
+
+    @staticmethod
+    def validateArgument(arg, arg_value):
         if arg != 'text' and arg_value == '':
             raise SlackCmdRequestException('POST arg {0} contains invalid value {1}'.format(arg, arg_value))
 
+    def getCommand(self):
+        return self.arguments['command']
 
-    def getCommandAndArgs(self, request):
-        slack_cmd_args = {}
-        for arg in self.slack_cmd_post_args:
-            slack_cmd_args[arg] = request.POST.get(arg, None)
-
-        for arg in self.slack_cmd_post_args:
-            if slack_cmd_args[arg] is None:
-                raise SlackCmdRequestException('Missing mandatory POST arg {0}'.format(arg))
-            else:
-                self.validateArgument(arg, slack_cmd_args[arg])
-
-        return slack_cmd_args['command'], slack_cmd_args
+    def getArguments(self):
+        return self.arguments
 
 
 ###############################################################################################
 # /frame command class
 class SlackCmdFrame(SlackCmd):
-    def authenticate(self, username, token):
+    def __init__(self, request, username):
+        SlackCmd.__init__(self, request)
+        self.authenticate(username, self.getArguments()['token'])
+
+    @staticmethod
+    def authenticate(username, token):
         if username == 'neske-pilot-project' and token == 'Cb7u0tsogeepryhYkMZwElC5':
             pass
         elif username == 'test.username' and token == 'test.token':
@@ -143,23 +148,8 @@ class SlackCmdFrame(SlackCmd):
             }
         }
 
-    def handleCommand(self, username, arguments):
-        self.authenticate(username, arguments['token'])
-        if arguments['text'].lower() == 'help':
+    def handle(self):
+        if self.arguments['text'].lower() == 'help':
             return HttpResponse("Help text")
         else:
-            return HttpResponse(json.dumps(arguments))
-
-
-def handleRequest(request, username):
-    try:
-        command, arguments = SlackCmd().getCommandAndArgs(request)
-        if command == '/frame':
-            return SlackCmdFrame().handleCommand(username, arguments)
-        else:
-            raise SlackCmdRequestException('Unknown command {0}'.format(arguments['command']))
-
-    except (SlackCmdRequestException, SlackCmdFrameFileError, SlackCmdFrameUnsupportedFileTypeError), e:
-        return HttpResponseBadRequest('400 BAD REQUEST {0}'.format(e.get_error()))
-    except SlackCmdFrameAuthenticationException, e:
-        return HttpResponseForbidden('403 FORBIDDEN {0}'.format(e.get_error()))
+            return HttpResponse(json.dumps(self.arguments))

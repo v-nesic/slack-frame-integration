@@ -6,6 +6,7 @@ import urllib2
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.http import HttpResponseBadRequest
+from django.http import HttpResponseForbidden
 from django.http import HttpResponseNotFound
 from django.views.decorators.csrf import csrf_exempt
 from django.core.urlresolvers import reverse
@@ -16,7 +17,11 @@ from functools import wraps
 
 from .crypto import FrameCypher
 from .models import Greeting
-from .slackcmd import handleRequest as handleSlackSlashCmd
+from .slackcmd import SlackCmdFrame
+from .slackcmd import SlackCmdRequestException
+from .slackcmd import SlackCmdFrameFileError
+from .slackcmd import SlackCmdFrameUnsupportedFileTypeError
+from .slackcmd import SlackCmdFrameAuthenticationException
 
 # Create your views here.
 def index(request):
@@ -58,5 +63,14 @@ def frame(request, token):
 
 
 @csrf_exempt
-def slackSlashCmdRequest(request, command):
-    return handleSlackSlashCmd(request, command)
+def slackSlashCmdRequest(request, username):
+    try:
+        command = request.POST.get('command', '')
+        if command == '/frame':
+            return SlackCmdFrame(request, username).handle()
+        else:
+            return HttpResponseBadRequest('400 BAD REQUEST: Command {0} unknown'.format(command))
+    except (SlackCmdRequestException, SlackCmdFrameFileError, SlackCmdFrameUnsupportedFileTypeError), e:
+        return HttpResponseBadRequest('400 BAD REQUEST {0}'.format(e.get_error()))
+    except SlackCmdFrameAuthenticationException, e:
+        return HttpResponseForbidden('403 FORBIDDEN {0}'.format(e.get_error()))
