@@ -214,7 +214,7 @@ class SlackCmdFrame(SlackCmd):
     def get_file_response(self):
         file_url = self.arguments['text']
         token = FrameCypher().encrypt('{}:{}'.format(self.get_file_mapping(self.get_file_type(file_url)), file_url))
-        frame_instance_url = ''.join(['https://', self.request.get_host(), reverse('frame-instance-run', args=[token])])
+        frame_instance_url = ''.join(['https://', self.request.get_host(), reverse('frame-instance', args=[token])])
 
         return self.get_http_json_response(frame_instance_url, self.url_response_attachment_text)
 

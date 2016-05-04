@@ -50,8 +50,7 @@ def frame(request, token):
             'mapping': mapping_and_file[:split],
             'file_url': mapping_and_file[split:]
         }
-        return HttpResponse(json.dumps(context), content_type='application/json')
-        # return render(request, 'frame-instance-run.html', context)
+        return render(request, 'frame-instance.html', context)
     except BaseException, e:
         return HttpResponseNotFound('400 NOT FOUND {}, error = {}'.format(request.path, e))
 
