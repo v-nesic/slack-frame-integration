@@ -3,7 +3,6 @@ from urlparse import urlparse
 import urllib2
 
 from mock import patch, Mock
-from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse, resolve, Resolver404
 from django.test import Client, TestCase
