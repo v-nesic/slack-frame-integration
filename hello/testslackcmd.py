@@ -1,8 +1,8 @@
 import json
-from mock import patch, Mock
 from urlparse import urlparse
 import urllib2
 
+from mock import patch, Mock
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse, resolve, Resolver404
@@ -14,6 +14,8 @@ from slackcmd import FrameCypher
 from slackcmd import SlackCmdFrame
 from slackcmd import SlackCmdSettings as TestSettings
 
+
+# Create your tests here.
 class SlackCmdTest(TestCase):
     test_username = 'test.username'
     test_user_settings = {
@@ -125,85 +127,84 @@ class SlackCmdTest(TestCase):
         self.assertEqual('application/json', response['Content-Type'])
         self.assertEqual(help_response['text'], SlackCmdFrame.help_response_text)
 
-    def test_frame_cmd_with_text_file(self):
-        with patch.object(urllib2, 'urlopen') as urlopen_mock:
-            mock_response = Mock()
-            mock_response.getcode.return_value = 200
-            mock_response_info = Mock()
-            mock_response_info.getheader.return_value = 'text/html'
-            mock_response.info.return_value = mock_response_info
-            urlopen_mock.return_value = mock_response
+    @patch('urllib2.urlopen')
+    def test_frame_cmd_with_text_file(self, urlopen_mock):
+        mock_response = Mock()
+        mock_response.getcode.return_value = 200
+        mock_response_info = Mock()
+        mock_response_info.getheader.return_value = 'text/html'
+        mock_response.info.return_value = mock_response_info
+        urlopen_mock.return_value = mock_response
 
-            response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_txt_url))
-            response_json = json.loads(response.content)
+        response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_txt_url))
+        response_json = json.loads(response.content)
 
-            self.assertTrue(urlopen_mock.has_been_called())  # Detect breaking changes in implementation
-            self.assertEqual(200, response.status_code, '{0} {1}'.format(response.status_code, response.content))
-            found = resolve(urlparse(response_json['text']).path)
-            self.assertEqual(found.func, hello.views.frame)
-            self.assertEqual(FrameCypher().decrypt(found.args[0]), '{0}:{1}'.format('text_mapping', self.test_txt_url))
+        self.assertTrue(urlopen_mock.has_been_called())  # Detect breaking changes in implementation
+        self.assertEqual(200, response.status_code, '{0} {1}'.format(response.status_code, response.content))
+        found = resolve(urlparse(response_json['text']).path)
+        self.assertEqual(found.func, hello.views.frame)
+        self.assertEqual(FrameCypher().decrypt(found.args[0]), '{0}:{1}'.format('text_mapping', self.test_txt_url))
 
-    def test_frame_cmd_with_image_file(self):
-        with patch.object(urllib2, 'urlopen') as urlopen_mock:
-            mock_response = Mock()
-            mock_response.getcode.return_value = 200
-            mock_response_info = Mock()
-            mock_response_info.getheader.return_value = 'image/png'
-            mock_response.info.return_value = mock_response_info
-            urlopen_mock.return_value = mock_response
+    @patch('urllib2.urlopen')
+    def test_frame_cmd_with_image_file(self, urlopen_mock):
+        mock_response = Mock()
+        mock_response.getcode.return_value = 200
+        mock_response_info = Mock()
+        mock_response_info.getheader.return_value = 'image/png'
+        mock_response.info.return_value = mock_response_info
+        urlopen_mock.return_value = mock_response
 
-            response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_img_url))
-            response_json = json.loads(response.content)
+        response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_img_url))
+        response_json = json.loads(response.content)
 
-            self.assertTrue(urlopen_mock.has_been_called())  # Detect breaking changes in implementation
-            self.assertEqual(200, response.status_code, '{0} {1}'.format(response.status_code, response.content))
-            found = resolve(urlparse(response_json['text']).path)
-            self.assertEqual(found.func, hello.views.frame)
-            self.assertEqual(FrameCypher().decrypt(found.args[0]), '{0}:{1}'.format('image_mapping', self.test_img_url))
+        self.assertTrue(urlopen_mock.has_been_called())  # Detect breaking changes in implementation
+        self.assertEqual(200, response.status_code, '{0} {1}'.format(response.status_code, response.content))
+        found = resolve(urlparse(response_json['text']).path)
+        self.assertEqual(found.func, hello.views.frame)
+        self.assertEqual(FrameCypher().decrypt(found.args[0]), '{0}:{1}'.format('image_mapping', self.test_img_url))
 
-    def test_frame_cmd_with_unsupported_file_type(self):
-        with patch.object(urllib2, 'urlopen') as urlopen_mock:
-            mock_response = Mock()
-            mock_response.getcode.return_value = 200
-            mock_response_info = Mock()
-            mock_response_info.getheader.return_value = 'application/json'
-            mock_response.info.return_value = mock_response_info
-            urlopen_mock.return_value = mock_response
+    @patch('urllib2.urlopen')
+    def test_frame_cmd_with_unsupported_file_type(self, urlopen_mock):
+        mock_response = Mock()
+        mock_response.getcode.return_value = 200
+        mock_response_info = Mock()
+        mock_response_info.getheader.return_value = 'application/json'
+        mock_response.info.return_value = mock_response_info
+        urlopen_mock.return_value = mock_response
 
-            response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_txt_url))
+        response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_txt_url))
 
-            self.assertTrue(urlopen_mock.has_been_called())  # Detect breaking changes in implementation
-            self.assertEqual(400, response.status_code, '{} {}'.format(response.status_code, response.content))
+        self.assertTrue(urlopen_mock.has_been_called())  # Detect breaking changes in implementation
+        self.assertEqual(400, response.status_code, '{} {}'.format(response.status_code, response.content))
 
-    def test_frame_cmd_invalid_url_format(self):
-        with patch.object(URLValidator, '__call__') as validator_mock:
-            validator_mock.side_effect = ValidationError('')
+    @patch('django.core.validators.URLValidator.__call__')
+    def test_frame_cmd_invalid_url_format(self, url_validator_mock):
+        url_validator_mock.side_effect = ValidationError('')
 
-            response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_txt_url))
+        response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_txt_url))
 
-            self.assertEqual(400, response.status_code, '{} {}'.format(response.status_code, response.content))
-            validator_mock.assert_called_with(self.test_txt_url)  # Detect breaking changes in implementation
+        self.assertEqual(400, response.status_code, '{} {}'.format(response.status_code, response.content))
+        url_validator_mock.assert_called_with(self.test_txt_url)  # Detect breaking changes in implementation
 
-    def test_frame_cmd_unreachable_file_url(self):
-        with patch.object(urllib2, 'urlopen') as urlopen_mock:
-            urlopen_mock.side_effect = urllib2.HTTPError(self.test_txt_url, 400, '', '', None)
+    @patch('urllib2.urlopen')
+    def test_frame_cmd_unreachable_file_url(self, urlopen_mock):
+        urlopen_mock.side_effect = urllib2.HTTPError(self.test_txt_url, 400, '', '', None)
 
-            response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_txt_url))
+        response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_txt_url))
 
-            self.assertEqual(400, response.status_code, '{} {}'.format(response.status_code, response.content))
-            self.assertTrue(urlopen_mock.has_been_called())  # Detect breaking changes in implementation
+        self.assertEqual(400, response.status_code, '{} {}'.format(response.status_code, response.content))
+        self.assertTrue(urlopen_mock.has_been_called())  # Detect breaking changes in implementation
 
-    def test_frame_cmd_file_url_status_not_200(self):
-        with patch.object(urllib2, 'urlopen') as urlopen_mock:
-            mock_response = Mock()
-            mock_response.getcode.return_value = 404
-            urlopen_mock.return_value = mock_response
+    @patch('urllib2.urlopen')
+    def test_frame_cmd_file_url_status_not_200(self, urlopen_mock):
+        mock_response = Mock()
+        mock_response.getcode.return_value = 404
+        urlopen_mock.return_value = mock_response
 
-            response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_txt_url))
+        response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_txt_url))
 
-            self.assertEqual(400, response.status_code, '{} {}'.format(response.status_code, response.content))
-            self.assertTrue(urlopen_mock.has_been_called())  # Detect breaking changes in implementation
-
+        self.assertEqual(400, response.status_code, '{} {}'.format(response.status_code, response.content))
+        self.assertTrue(urlopen_mock.has_been_called())  # Detect breaking changes in implementation
 
     def disabled_test_frame_cmd_with_text_file_unmocked(self):
         response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_txt_url))
