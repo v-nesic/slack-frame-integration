@@ -8,7 +8,7 @@ import slacktoframe.views
 
 
 # Examples:
-# url(r'^$', 'gettingstarted.views.home', name='home'),
+# url(r'^$', 'slackframeintegration.views.home', name='home'),
 # url(r'^blog/', include('blog.urls')),
 
 urlpatterns = [
