@@ -1,7 +1,7 @@
 from django.core.urlresolvers import reverse, resolve, Resolver404
 from django.test import Client, TestCase
 
-import hello.views
+import slacktoframe.views
 
 from slackcmd import UserSettings as TestSettings
 
@@ -30,7 +30,7 @@ class FrameInstanceTest(TestCase):
 
         found = resolve(self.test_url_template.format(valid_chars_token))
 
-        self.assertEqual(found.func, hello.views.frame_instance_request)
+        self.assertEqual(found.func, slacktoframe.views.frame_instance_request)
         self.assertEqual(found.args[0], valid_chars_token,
                          'Parsed token does not match expected value {}'.format(valid_chars_token))
 

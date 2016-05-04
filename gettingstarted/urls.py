@@ -4,7 +4,7 @@ from django.contrib import admin
 
 admin.autodiscover()
 
-import hello.views
+import slacktoframe.views
 
 
 # Examples:
@@ -12,9 +12,9 @@ import hello.views
 # url(r'^blog/', include('blog.urls')),
 
 urlpatterns = [
-    url(r'^$', hello.views.index, name='index'),
-    url(r'^db', hello.views.db, name='db'),
-    url(r'^slack/([a-zA-Z_][0-9a-zA-Z\-_.]*)/slash-cmd', hello.views.slack_slash_cmd_request, name='slack-slash-cmd'),
-    url(r'^frame/instance/([0-9a-zA-Z-_]+)/', hello.views.frame_instance_request, name='frame-instance'),
+    url(r'^$', slacktoframe.views.index, name='index'),
+    url(r'^db', slacktoframe.views.db, name='db'),
+    url(r'^slack/([a-zA-Z_][0-9a-zA-Z\-_.]*)/slash-cmd', slacktoframe.views.slack_slash_cmd_request, name='slack-slash-cmd'),
+    url(r'^frame/instance/([0-9a-zA-Z-_]+)/', slacktoframe.views.frame_instance_request, name='frame-instance'),
     url(r'^admin/', include(admin.site.urls)),
 ]

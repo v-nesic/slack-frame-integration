@@ -7,11 +7,11 @@ from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse, resolve, Resolver404
 from django.test import Client, TestCase
 
-import hello.views
+import slacktoframe.views
 
 from slackcmd import FrameCypher
 from slackcmd import SlackCmdFrame
-from slackcmd import UserSettings as SlackToFrameSettings
+from usersettings import UserSettings
 
 
 class SlackCmdTest(TestCase):
@@ -68,7 +68,7 @@ class SlackCmdTest(TestCase):
         for username in valid_usernames:
             found = resolve(self.test_url_template.format(username))
 
-            self.assertEqual(found.func, hello.views.slack_slash_cmd_request)
+            self.assertEqual(found.func, slacktoframe.views.slack_slash_cmd_request)
             self.assertEqual(found.args[0], username,
                              'Parsed username does not match expected value {}'.format(username))
 
@@ -140,7 +140,7 @@ class SlackCmdTest(TestCase):
         self.assertTrue(urlopen_mock.has_been_called())  # Detect breaking changes in implementation
         self.assertEqual(200, response.status_code, '{} {}'.format(response.status_code, response.content))
         found = resolve(urlparse(response_json['text']).path)
-        self.assertEqual(found.func, hello.views.frame_instance_request)
+        self.assertEqual(found.func, slacktoframe.views.frame_instance_request)
         self.assertEqual(FrameCypher().decrypt(found.args[0]), '{}:{}'.format('text_mapping', self.test_txt_url))
 
     @patch('urllib2.urlopen')
@@ -158,7 +158,7 @@ class SlackCmdTest(TestCase):
         self.assertTrue(urlopen_mock.has_been_called())  # Detect breaking changes in implementation
         self.assertEqual(200, response.status_code, '{} {}'.format(response.status_code, response.content))
         found = resolve(urlparse(response_json['text']).path)
-        self.assertEqual(found.func, hello.views.frame_instance_request)
+        self.assertEqual(found.func, slacktoframe.views.frame_instance_request)
         self.assertEqual(FrameCypher().decrypt(found.args[0]), '{}:{}'.format('image_mapping', self.test_img_url))
 
     @patch('urllib2.urlopen')
@@ -210,7 +210,7 @@ class SlackCmdTest(TestCase):
 
         self.assertEqual(200, response.status_code, '{} {}'.format(response.status_code, response.content))
         found = resolve(urlparse(response_json['text']).path)
-        self.assertEqual(found.func, hello.views.frame_instance_request)
+        self.assertEqual(found.func, slacktoframe.views.frame_instance_request)
         self.assertEqual(FrameCypher().decrypt(found.args[0]), '{}:{}'.format('text_mapping', self.test_txt_url))
 
     def disabled_test_frame_cmd_with_image_file_unmocked(self):
@@ -219,5 +219,5 @@ class SlackCmdTest(TestCase):
 
         self.assertEqual(200, response.status_code, '{} {}'.format(response.status_code, response.content))
         found = resolve(urlparse(response_json['text']).path)
-        self.assertEqual(found.func, hello.views.frame_instance_request)
+        self.assertEqual(found.func, slacktoframe.views.frame_instance_request)
         self.assertEqual(FrameCypher().decrypt(found.args[0]), '{}:{}'.format('image_mapping', self.test_img_url))
