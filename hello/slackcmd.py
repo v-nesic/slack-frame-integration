@@ -1,23 +1,13 @@
-import json
-import os
-import requests
 import urllib2
 
-from django.shortcuts import render
-from django.http import HttpResponse
 from django.http import HttpResponseBadRequest
 from django.http import HttpResponseForbidden
-from django.http import HttpResponseNotFound
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from django.core.urlresolvers import reverse
-from django.conf.urls import url
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
-from functools import wraps
 
 from .crypto import FrameCypher
-from .models import Greeting
 
 
 class SlackCmdSettings:
@@ -239,4 +229,3 @@ def execute_slack_slash_command(request, username):
 
     except SlackCmdFrameAuthenticationException, e:
         return HttpResponseForbidden('403 FORBIDDEN {}'.format(e.get_error()))
-
