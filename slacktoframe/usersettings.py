@@ -3,7 +3,7 @@ class UserSettings:
         'neske-pilot-project': {
             'token': 'Cb7u0tsogeepryhYkMZwElC5',
             'mapping': {
-                'text': 'ljW8ZlGr',
+                'text': 'RpA2lXj8',
                 'image': 'ljW8d7Gr'
             }
         }
