@@ -1,3 +1,4 @@
+import re
 import urllib2
 
 from django.http import HttpResponseBadRequest
@@ -116,7 +117,11 @@ class SlackCmdFrame(SlackCmd):
     @staticmethod
     def validate_url(file_url):
         try:
+            # If the URL doesn't begin with scheme, we shall default to http://
+            if re.search('^[a-zA-Z]+://', file_url) is None:
+                file_url = 'http://' + file_url
             URLValidator()(file_url)
+            return file_url
         except ValidationError:
             raise SlackCmdFrameFileError("Requested file URL {} is invalid".format(file_url))
 
@@ -148,7 +153,6 @@ class SlackCmdFrame(SlackCmd):
 
     @staticmethod
     def get_file_type(file_url):
-        SlackCmdFrame.validate_url(file_url)
         return SlackCmdFrame.get_content_type(file_url)
 
     def get_file_mapping(self, file_type):
@@ -160,30 +164,21 @@ class SlackCmdFrame(SlackCmd):
             raise SlackCmdFrameUnsupportedFileTypeError(file_type)
 
     def get_file_response(self):
-        file_url = self.arguments['text']
-        token = FrameCypher().encrypt('{}:{}'.format(self.get_file_mapping(self.get_file_type(file_url)), file_url))
+        file_url = SlackCmdFrame.validate_url(self.arguments['text'])
+        token = FrameCypher().encrypt(self.get_file_mapping(self.get_file_type(file_url)), file_url)
         frame_instance_url = ''.join(['https://', self.request.get_host(), reverse('frame-instance', args=[token])])
 
         return self.get_http_json_response(frame_instance_url, self.url_response_attachment_text)
 
-    def execute(self):
-        if self.arguments['text'] == '' or self.arguments['text'].lower() == 'help':
-            return self.get_help_response()
-        else:
-            return self.get_file_response()
-
-
-def execute_slack_slash_command(request, username):
-    try:
-        command = request.POST.get('command', '')
-
-        if command == '/frame':
-            return SlackCmdFrame(request, username).execute()
-        else:
-            return HttpResponseBadRequest('400 BAD REQUEST: Command {} unknown'.format(command))
-
-    except (SlackCmdRequestException, SlackCmdFrameFileError, SlackCmdFrameUnsupportedFileTypeError), e:
-        return HttpResponseBadRequest('400 BAD REQUEST {}'.format(e.get_error()))
-
-    except SlackCmdFrameAuthenticationException, e:
-        return HttpResponseForbidden('403 FORBIDDEN {}'.format(e.get_error()))
+    @staticmethod
+    def execute(request, username):
+        try:
+            command = SlackCmdFrame(request, username)
+            if command.arguments['text'] == '' or command.arguments['text'].lower() == 'help':
+                return command.get_help_response()
+            else:
+                return command.get_file_response()
+        except (SlackCmdRequestException, SlackCmdFrameFileError, SlackCmdFrameUnsupportedFileTypeError), e:
+            return HttpResponseBadRequest('400 BAD REQUEST {}'.format(e.get_error()))
+        except SlackCmdFrameAuthenticationException, e:
+            return HttpResponseForbidden('403 FORBIDDEN {}'.format(e.get_error()))
