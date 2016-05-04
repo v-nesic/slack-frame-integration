@@ -18,9 +18,10 @@ class SlackCmdTest(TestCase):
     test_username = 'test.username'
     test_user_settings = {
         'token': 'test.token',
-        'mapping': {
-            'text': 'text_mapping',
-            'image': 'image_mapping'
+        'pool_id': 123456,
+        'application_id': {
+            'text': 'text_app_id',
+            'image': 'image_app_id'
         }
     }
     test_url_template = '/slack/{}/slash-cmd'
@@ -140,7 +141,12 @@ class SlackCmdTest(TestCase):
 
         found = resolve(urlparse(json.loads(response.content)['text']).path)
         self.assertEqual(found.func, slacktoframe.views.frame_instance_request)
-        self.assertEqual(FrameCypher().decrypt(found.args[0]), ('text_mapping', self.test_txt_url))
+        self.assertEqual(FrameCypher().decrypt(found.args[0]),
+                         {
+                             'file_url': self.test_txt_url,
+                             'application_id': self.test_user_settings['application_id']['text'],
+                             'pool_id': self.test_user_settings['pool_id']
+                         })
 
     @patch('urllib2.urlopen')
     def test_frame_cmd_with_image_file(self, urlopen_mock):
@@ -157,7 +163,12 @@ class SlackCmdTest(TestCase):
 
         found = resolve(urlparse(json.loads(response.content)['text']).path)
         self.assertEqual(found.func, slacktoframe.views.frame_instance_request)
-        self.assertEqual(FrameCypher().decrypt(found.args[0]), ('image_mapping', self.test_img_url))
+        self.assertEqual(FrameCypher().decrypt(found.args[0]),
+                         {
+                             'file_url': self.test_img_url,
+                             'application_id': self.test_user_settings['application_id']['image'],
+                             'pool_id': self.test_user_settings['pool_id']
+                         })
 
     @patch('urllib2.urlopen')
     def test_frame_cmd_with_url_without_scheme(self, urlopen_mock):
@@ -174,7 +185,12 @@ class SlackCmdTest(TestCase):
 
         found = resolve(urlparse(json.loads(response.content)['text']).path)
         self.assertEqual(found.func, slacktoframe.views.frame_instance_request)
-        self.assertEqual(FrameCypher().decrypt(found.args[0]), ('text_mapping', 'http://' + self.test_no_scheme_url))
+        self.assertEqual(FrameCypher().decrypt(found.args[0]),
+                         {
+                             'file_url': 'http://'+self.test_no_scheme_url,
+                             'application_id': self.test_user_settings['application_id']['text'],
+                             'pool_id': self.test_user_settings['pool_id']
+                         })
 
     @patch('urllib2.urlopen')
     def test_frame_cmd_with_unsupported_file_type(self, urlopen_mock):
@@ -219,18 +235,28 @@ class SlackCmdTest(TestCase):
         self.assertEqual(400, response.status_code, '{} {}'.format(response.status_code, response.content))
         self.assertTrue(urlopen_mock.has_been_called())  # Detect breaking changes in implementation
 
-    def disabled_test_frame_cmd_with_text_file_unmocked(self):
+    def test_frame_cmd_with_text_file_unmocked(self):
         response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_txt_url))
         self.assertEqual(200, response.status_code, '{} {}'.format(response.status_code, response.content))
 
         found = resolve(urlparse(json.loads(response.content)['text']).path)
         self.assertEqual(found.func, slacktoframe.views.frame_instance_request)
-        self.assertEqual(FrameCypher().decrypt(found.args[0]), ('text_mapping', self.test_txt_url))
+        self.assertEqual(FrameCypher().decrypt(found.args[0]),
+                         {
+                             'file_url': self.test_txt_url,
+                             'application_id': self.test_user_settings['application_id']['text'],
+                             'pool_id': self.test_user_settings['pool_id']
+                         })
 
-    def disabled_test_frame_cmd_with_image_file_unmocked(self):
+    def test_frame_cmd_with_image_file_unmocked(self):
         response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_img_url))
         self.assertEqual(200, response.status_code, '{} {}'.format(response.status_code, response.content))
 
         found = resolve(urlparse(json.loads(response.content)['text']).path)
         self.assertEqual(found.func, slacktoframe.views.frame_instance_request)
-        self.assertEqual(FrameCypher().decrypt(found.args[0]), ('image_mapping', self.test_img_url))
+        self.assertEqual(FrameCypher().decrypt(found.args[0]),
+                         {
+                             'file_url': self.test_img_url,
+                             'application_id': self.test_user_settings['application_id']['image'],
+                             'pool_id': self.test_user_settings['pool_id']
+                         })

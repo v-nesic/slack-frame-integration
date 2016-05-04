@@ -1,3 +1,5 @@
+import json
+
 from django.shortcuts import render
 from django.http import HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
@@ -16,7 +18,6 @@ def slack_slash_cmd_request(request, username):
 
 def frame_instance_request(request, token):
     try:
-        file_mapping, file_url = FrameCypher().decrypt(token)
-        return render(request, 'frame-instance.html', {'mapping': file_mapping, 'file_url': file_url})
+        return render(request, 'frame-instance.html', FrameCypher().decrypt(token))
     except FrameCypherException, e:
         return HttpResponseBadRequest('400 NOT FOUND {}, error = {}'.format(request.path, e.get_error()))

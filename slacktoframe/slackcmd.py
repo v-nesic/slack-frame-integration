@@ -1,3 +1,4 @@
+import json
 import re
 import urllib2
 
@@ -155,18 +156,21 @@ class SlackCmdFrame(SlackCmd):
     def get_file_type(file_url):
         return SlackCmdFrame.get_content_type(file_url)
 
-    def get_file_mapping(self, file_type):
-        mappings = UserSettings.get(self.username, 'mapping')
-
-        if file_type in mappings:
-            return mappings[file_type]
+    def get_application_id(self, file_type):
+        application_id = UserSettings.get(self.username, 'application_id')
+        if file_type in application_id:
+            return application_id[file_type]
         else:
             raise SlackCmdFrameUnsupportedFileTypeError(file_type)
 
     def get_file_response(self):
         file_url = SlackCmdFrame.validate_url(self.arguments['text'])
-        token = FrameCypher().encrypt(self.get_file_mapping(self.get_file_type(file_url)), file_url)
-        frame_instance_url = ''.join(['https://', self.request.get_host(), reverse('frame-instance', args=[token])])
+        token = FrameCypher().encrypt({
+            'file_url': file_url,
+            'application_id': self.get_application_id(self.get_file_type(file_url)),
+            'pool_id': UserSettings.get(self.username, 'pool_id')
+        })
+        frame_instance_url = 'https://' + self.request.get_host() + reverse('frame-instance', args=[token])
 
         return self.get_http_json_response(frame_instance_url, self.url_response_attachment_text)
 

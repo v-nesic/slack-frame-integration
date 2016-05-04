@@ -2,9 +2,10 @@ class UserSettings:
     __user_settings = {
         'neske-pilot-project': {
             'token': 'Cb7u0tsogeepryhYkMZwElC5',
-            'mapping': {
-                'text': 'RpA2lXj8',
-                'image': 'ljW8d7Gr'
+            'pool_id': 52127
+            'application_id': {
+                'text': 'zKYxJqGk',  # RpA2lXj8
+                'image': 'zjlb57KZ'  # ljW8d7Gr
             }
         }
     }
