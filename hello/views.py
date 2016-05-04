@@ -5,8 +5,6 @@ import urllib2
 
 from django.shortcuts import render
 from django.http import HttpResponse
-from django.http import HttpResponseBadRequest
-from django.http import HttpResponseForbidden
 from django.http import HttpResponseNotFound
 from django.views.decorators.csrf import csrf_exempt
 from django.core.urlresolvers import reverse
@@ -17,11 +15,7 @@ from functools import wraps
 
 from .crypto import FrameCypher
 from .models import Greeting
-from .slackcmd import SlackCmdFrame
-from .slackcmd import SlackCmdRequestException
-from .slackcmd import SlackCmdFrameFileError
-from .slackcmd import SlackCmdFrameUnsupportedFileTypeError
-from .slackcmd import SlackCmdFrameAuthenticationException
+from .slackcmd import execute_slack_slash_command
 
 # Create your views here.
 def index(request):
@@ -50,7 +44,7 @@ def frame(request, token):
         mapping_and_file = FrameCypher().decrypt(token)
         split = mapping_and_file.find(':')
         if split == -1:
-            return HttpResponseNotFound('400 NOT FOUND {0}, split = {1}, mapping_and_file={2}'.format(request.path, split, mapping_and_file))
+            return HttpResponseNotFound('400 NOT FOUND {}, split = {}, mapping_and_file={}'.format(request.path, split, mapping_and_file))
 
         context = {
             'mapping': mapping_and_file[:split],
@@ -59,18 +53,9 @@ def frame(request, token):
         return HttpResponse(json.dumps(context), content_type='application/json')
         # return render(request, 'frame-instance-run.html', context)
     except BaseException, e:
-        return HttpResponseNotFound('400 NOT FOUND {0}, error = {1}'.format(request.path, e))
+        return HttpResponseNotFound('400 NOT FOUND {}, error = {}'.format(request.path, e))
 
 
 @csrf_exempt
-def slackSlashCmdRequest(request, username):
-    try:
-        command = request.POST.get('command', '')
-        if command == '/frame':
-            return SlackCmdFrame(request, username).handle()
-        else:
-            return HttpResponseBadRequest('400 BAD REQUEST: Command {0} unknown'.format(command))
-    except (SlackCmdRequestException, SlackCmdFrameFileError, SlackCmdFrameUnsupportedFileTypeError), e:
-        return HttpResponseBadRequest('400 BAD REQUEST {0}'.format(e.get_error()))
-    except SlackCmdFrameAuthenticationException, e:
-        return HttpResponseForbidden('403 FORBIDDEN {0}'.format(e.get_error()))
+def slack_slash_cmd_request(request, username):
+    return execute_slack_slash_command(request, username)

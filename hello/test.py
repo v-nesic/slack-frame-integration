@@ -1,17 +1,31 @@
-from django.core.urlresolvers import resolve
-from django.core.urlresolvers import Resolver404
-from django.core.urlresolvers import reverse
-from django.test import Client
-from django.test import TestCase
-from slackcmd import SlackCmd
-from slackcmd import SlackCmdFrame
+import json
+from mock import patch, Mock
+from urlparse import urlparse
+import urllib2
+
+from django.core.validators import URLValidator
+from django.core.exceptions import ValidationError
+from django.core.urlresolvers import reverse, resolve, Resolver404
+from django.test import Client, TestCase
 
 import hello.views
 
+from slackcmd import FrameCypher
+from slackcmd import SlackCmdFrame
+from slackcmd import SlackCmdSettings as TestSettings
+
 class SlackCmdTest(TestCase):
-    url_template = '/slack/{0}/slash-cmd'
-    test_url = url_template.format('test.username')
-    cmd_template = {
+    test_username = 'test.username'
+    test_user_settings = {
+        'token': 'test.token',
+        'mapping': {
+            'text': 'text_mapping',
+            'image': 'image_mapping'
+        }
+    }
+    test_url_template = '/slack/{0}/slash-cmd'
+    test_url = reverse('slack-slash-cmd', args=[test_username])
+    test_command = {
         'token': 'test.token',
         'team_id': 'T10V1PSR4',
         'team_domain': 'neske-pilot-project',
@@ -23,64 +37,222 @@ class SlackCmdTest(TestCase):
         'text': '',
         'response_url': 'https://localhost:5000/slackcmdresponse'
     }
+    test_txt_url = 'http://www.google.com'
+    test_img_url = 'https://www.google.rs/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png'
 
-    def getSlackCmdPath(self, username):
+    @staticmethod
+    def get_slack_cmd_url(username):
         return reverse('slack-slash-cmd', args=[username])
 
-    def getSlackCmdContext(self, text='', use_fields=cmd_template.keys(), omit_fields=[]):
+    @classmethod
+    def get_slack_cmd_context(cls, text='', use_fields=test_command.keys(), omit_fields=[]):
         context = dict()
         for key in use_fields:
             if key not in omit_fields:
-                context[key] = self.cmd_template[key] if key != 'text' else text
+                context[key] = cls.test_command[key] if key != 'text' else text
         return context
 
-    def testPathResolvesToSlackcmdWithUsernameArg(self):
-        valid_usernames = ['abcd12', 'ab-cd-12', '_ab_cd_12', 'ab.cd.12']
-        for username in valid_usernames:
-            found = resolve(self.url_template.format(username))
-            self.assertEqual(found.func, hello.views.slackSlashCmdRequest)
-            self.assertEqual(found.args[0], username, 'Parsed username doesn\'t match expected value {0}'.format(username))
+    @classmethod
+    def setUpClass(cls):
+        TestSettings.add(cls.test_username, cls.test_user_settings)
 
-    def testPathResolvesToErrorForInvalidUsername(self):
-        invalid_usernames = ['abcd?', '-abc', '.abc', '0abc', 'ab cd' ]
+    @classmethod
+    def tearDownClass(cls):
+        TestSettings.delete(cls.test_username)
+
+    def test_path_resolves_to_slack_cmd_with_username_arg(self):
+        valid_usernames = ['abcd12', 'ab-cd-12', '_ab_cd_12', 'ab.cd.12']
+
+        for username in valid_usernames:
+            found = resolve(self.test_url_template.format(username))
+
+            self.assertEqual(found.func, hello.views.slack_slash_cmd_request)
+            self.assertEqual(found.args[0], username,
+                             'Parsed username doesn\'t match expected value {0}'.format(username))
+
+    def test_path_resolves_to_error_for_invalid_username(self):
+        invalid_usernames = ['abcd?', '-abc', '.abc', '0abc', 'ab cd']
+
         for username in invalid_usernames:
             try:
-                found = resolve(self.url_template.format(username))
+                found = resolve(self.test_url_template.format(username))
                 self.assertTrue(found is None, 'Invalid username {0} accepted'.format(username))
             except Resolver404:
                 pass
 
-    def testPostNoArgsV1(self):
+    def test_post_no_args_v1(self):
         response = Client().get(self.test_url)
         self.assertEqual(400, response.status_code)
 
-    def testPostNoArgsV2(self):
+    def test_post_no_args_v2(self):
         response = Client().post(self.test_url, {})
         self.assertEqual(400, response.status_code)
 
-    def testPostWithMissingArgs(self):
-        for arg in self.cmd_template.keys():
-            response = Client().post(self.test_url, self.getSlackCmdContext('text', omit_fields=arg))
-            self.assertEqual(400, response.status_code, 'Unexpected status code ({0} instead of 400) when missing {1} arg'.format(response.status_code, arg))
+    def test_post_with_missing_args(self):
+        for arg in self.test_command.keys():
+            response = Client().post(self.test_url, self.get_slack_cmd_context('text', omit_fields=[arg]))
 
-    def testUnsupportedCmd(self):
-        context = self.getSlackCmdContext()
-        context['command'] = 'frame' # Mandatory slash (/) missing at the beginning
+            self.assertEqual(400, response.status_code,
+                             'Unexpected status code ({0} instead of 400) when missing {1} arg'.format(
+                                 response.status_code, arg))
+
+    def test_unsupported_cmd(self):
+        context = self.get_slack_cmd_context()
+        context['command'] = 'frame'  # Mandatory slash (/) missing at the beginning
         response = Client().post(self.test_url, context)
+
         self.assertEqual(400, response.status_code)
 
-    def testUnknownUsername(self):
-        response = Client().post(self.getSlackCmdPath('ABCDABCDABCDABCDABCDABCD'), self.getSlackCmdContext())
+    def test_unknown_username(self):
+        response = Client().post(SlackCmdTest.get_slack_cmd_url('ABCDABCDABCDABCDABCDABCD'),
+                                 self.get_slack_cmd_context())
         self.assertEqual(403, response.status_code, '{0} {1}'.format(response.status_code, response.content))
 
-    def testWrongToken(self):
-        context = self.getSlackCmdContext()
+    def test_wrong_token(self):
+        context = self.get_slack_cmd_context()
         context['token'] = 'ABCDABCDABCDABCDABCDABCD'
-        response = Client().post(self.getSlackCmdPath('ABCDABCDABCDABCDABCDABCD'), context)
         response = Client().post(self.test_url, context)
+
         self.assertEqual(403, response.status_code, '{0} {1}'.format(response.status_code, response.content))
 
-    def testFrameCdmHelp(self):
-        response = Client().post(self.test_url, self.getSlackCmdContext('help'))
+    def test_frame_cdm_help(self):
+        response = Client().post(self.test_url, self.get_slack_cmd_context('help'))
+        help_response = json.loads(response.content)
+
         self.assertEqual(200, response.status_code, str(response.status_code) + response.content)
-        self.assertEqual('text/', response['Content-Type'][:5])
+        self.assertEqual('application/json', response['Content-Type'])
+        self.assertEqual(help_response['text'], SlackCmdFrame.help_response_text)
+
+    def test_frame_cmd_with_text_file(self):
+        with patch.object(urllib2, 'urlopen') as urlopen_mock:
+            mock_response = Mock()
+            mock_response.getcode.return_value = 200
+            mock_response_info = Mock()
+            mock_response_info.getheader.return_value = 'text/html'
+            mock_response.info.return_value = mock_response_info
+            urlopen_mock.return_value = mock_response
+
+            response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_txt_url))
+            response_json = json.loads(response.content)
+
+            self.assertTrue(urlopen_mock.has_been_called())  # Detect breaking changes in implementation
+            self.assertEqual(200, response.status_code, '{0} {1}'.format(response.status_code, response.content))
+            found = resolve(urlparse(response_json['text']).path)
+            self.assertEqual(found.func, hello.views.frame)
+            self.assertEqual(FrameCypher().decrypt(found.args[0]), '{0}:{1}'.format('text_mapping', self.test_txt_url))
+
+    def test_frame_cmd_with_image_file(self):
+        with patch.object(urllib2, 'urlopen') as urlopen_mock:
+            mock_response = Mock()
+            mock_response.getcode.return_value = 200
+            mock_response_info = Mock()
+            mock_response_info.getheader.return_value = 'image/png'
+            mock_response.info.return_value = mock_response_info
+            urlopen_mock.return_value = mock_response
+
+            response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_img_url))
+            response_json = json.loads(response.content)
+
+            self.assertTrue(urlopen_mock.has_been_called())  # Detect breaking changes in implementation
+            self.assertEqual(200, response.status_code, '{0} {1}'.format(response.status_code, response.content))
+            found = resolve(urlparse(response_json['text']).path)
+            self.assertEqual(found.func, hello.views.frame)
+            self.assertEqual(FrameCypher().decrypt(found.args[0]), '{0}:{1}'.format('image_mapping', self.test_img_url))
+
+    def test_frame_cmd_with_text_file(self):
+        with patch.object(urllib2, 'urlopen') as urlopen_mock:
+            mock_response = Mock()
+            mock_response.getcode.return_value = 200
+            mock_response_info = Mock()
+            mock_response_info.getheader.return_value = 'text/html'
+            mock_response.info.return_value = mock_response_info
+            urlopen_mock.return_value = mock_response
+
+            response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_txt_url))
+            response_json = json.loads(response.content)
+
+            self.assertTrue(urlopen_mock.has_been_called())  # Detect breaking changes in implementation
+            self.assertEqual(200, response.status_code, '{0} {1}'.format(response.status_code, response.content))
+            found = resolve(urlparse(response_json['text']).path)
+            self.assertEqual(found.func, hello.views.frame)
+            self.assertEqual(FrameCypher().decrypt(found.args[0]), '{0}:{1}'.format('text_mapping', self.test_txt_url))
+
+    def test_frame_cmd_with_image_file(self):
+        with patch.object(urllib2, 'urlopen') as urlopen_mock:
+            mock_response = Mock()
+            mock_response.getcode.return_value = 200
+            mock_response_info = Mock()
+            mock_response_info.getheader.return_value = 'image/png'
+            mock_response.info.return_value = mock_response_info
+            urlopen_mock.return_value = mock_response
+
+            response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_img_url))
+            response_json = json.loads(response.content)
+
+            self.assertTrue(urlopen_mock.has_been_called())  # Detect breaking changes in implementation
+            self.assertEqual(200, response.status_code, '{0} {1}'.format(response.status_code, response.content))
+            found = resolve(urlparse(response_json['text']).path)
+            self.assertEqual(found.func, hello.views.frame)
+            self.assertEqual(FrameCypher().decrypt(found.args[0]), '{0}:{1}'.format('image_mapping', self.test_img_url))
+
+    def test_frame_cmd_with_unsupported_file_type(self):
+        with patch.object(urllib2, 'urlopen') as urlopen_mock:
+            mock_response = Mock()
+            mock_response.getcode.return_value = 200
+            mock_response_info = Mock()
+            mock_response_info.getheader.return_value = 'application/json'
+            mock_response.info.return_value = mock_response_info
+            urlopen_mock.return_value = mock_response
+
+            response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_txt_url))
+
+            self.assertTrue(urlopen_mock.has_been_called())  # Detect breaking changes in implementation
+            self.assertEqual(400, response.status_code, '{} {}'.format(response.status_code, response.content))
+
+    def test_frame_cmd_invalid_url_format(self):
+        with patch.object(URLValidator, '__call__') as validator_mock:
+            validator_mock.side_effect = ValidationError('')
+
+            response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_txt_url))
+
+            self.assertEqual(400, response.status_code, '{} {}'.format(response.status_code, response.content))
+            validator_mock.assert_called_with(self.test_txt_url)  # Detect breaking changes in implementation
+
+    def test_frame_cmd_unreachable_file_url(self):
+        with patch.object(urllib2, 'urlopen') as urlopen_mock:
+            urlopen_mock.side_effect = urllib2.HTTPError(self.test_txt_url, 400, '', '', None)
+
+            response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_txt_url))
+
+            self.assertEqual(400, response.status_code, '{} {}'.format(response.status_code, response.content))
+            self.assertTrue(urlopen_mock.has_been_called())  # Detect breaking changes in implementation
+
+    def test_frame_cmd_file_url_status_not_200(self):
+        with patch.object(urllib2, 'urlopen') as urlopen_mock:
+            mock_response = Mock()
+            mock_response.getcode.return_value = 404
+            urlopen_mock.return_value = mock_response
+
+            response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_txt_url))
+
+            self.assertEqual(400, response.status_code, '{} {}'.format(response.status_code, response.content))
+            self.assertTrue(urlopen_mock.has_been_called())  # Detect breaking changes in implementation
+
+
+    def test_frame_cmd_with_text_file_unmocked(self):
+        response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_txt_url))
+        response_json = json.loads(response.content)
+
+        self.assertEqual(200, response.status_code, '{0} {1}'.format(response.status_code, response.content))
+        found = resolve(urlparse(response_json['text']).path)
+        self.assertEqual(found.func, hello.views.frame)
+        self.assertEqual(FrameCypher().decrypt(found.args[0]), '{0}:{1}'.format('text_mapping', self.test_txt_url))
+
+    def test_frame_cmd_with_image_file_unmocked(self):
+        response = Client().post(self.test_url, self.get_slack_cmd_context(self.test_img_url))
+        response_json = json.loads(response.content)
+
+        self.assertEqual(200, response.status_code, '{0} {1}'.format(response.status_code, response.content))
+        found = resolve(urlparse(response_json['text']).path)
+        self.assertEqual(found.func, hello.views.frame)
+        self.assertEqual(FrameCypher().decrypt(found.args[0]), '{0}:{1}'.format('image_mapping', self.test_img_url))
