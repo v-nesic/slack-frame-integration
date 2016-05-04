@@ -4,7 +4,7 @@ class UserSettings:
             'token': 'Cb7u0tsogeepryhYkMZwElC5',
             'mapping': {
                 'text': 'ljW8ZlGr',
-                'image': ''
+                'image': 'ljW8d7Gr'
             }
         }
     }
