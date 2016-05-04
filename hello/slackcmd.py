@@ -8,49 +8,7 @@ from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
 
 from .crypto import FrameCypher
-
-
-class SlackCmdSettings:
-    __user_settings = {
-        'neske-pilot-project': {
-            'token': 'Cb7u0tsogeepryhYkMZwElC5',
-            'mapping': {
-                'text': 'ljW8ZlGr',
-                'image': ''
-            }
-        }
-    }
-
-    # TODO: check if this is really needed
-    def __init__(self):
-        pass
-
-    @classmethod
-    def add(cls, username, settings):
-        if username not in cls.__user_settings:
-            cls.__user_settings[username] = settings
-
-    @classmethod
-    def override(cls, username, settings):
-        if username in cls.__user_settings:
-            cls.__user_settings[username] = settings
-
-    @classmethod
-    def delete(cls, username):
-        if username in cls.__user_settings:
-            cls.__user_settings.__delitem__(username)
-
-    @classmethod
-    def get(cls, username, value=None, default_value=None):
-        if username in cls.__user_settings:
-            if value is None:
-                return cls.__user_settings[username]
-            elif value in cls.__user_settings[username]:
-                return cls.__user_settings[username][value]
-            else:
-                return default_value
-        elif value is None:
-            return default_value
+from .usersettings import UserSettings
 
 
 ###############################################################################################
@@ -142,7 +100,7 @@ class SlackCmdFrame(SlackCmd):
         assert 'token' in self.arguments
         assert self.arguments['token'] is not None
 
-        return self.arguments['token'] == SlackCmdSettings.get(username, 'token')
+        return self.arguments['token'] == UserSettings.get(username, 'token')
 
     @staticmethod
     def get_http_json_response(text, attachment_text=None):
@@ -194,7 +152,7 @@ class SlackCmdFrame(SlackCmd):
         return SlackCmdFrame.get_content_type(file_url)
 
     def get_file_mapping(self, file_type):
-        mappings = SlackCmdSettings.get(self.username, 'mapping')
+        mappings = UserSettings.get(self.username, 'mapping')
 
         if file_type in mappings:
             return mappings[file_type]
