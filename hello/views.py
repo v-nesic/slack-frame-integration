@@ -1,21 +1,12 @@
-import json
 import os
-import requests
-import urllib2
 
 from django.shortcuts import render
 from django.http import HttpResponse
-from django.http import HttpResponseNotFound
 from django.views.decorators.csrf import csrf_exempt
-from django.core.urlresolvers import reverse
-from django.conf.urls import url
-from django.core.validators import URLValidator
-from django.core.exceptions import ValidationError
-from functools import wraps
 
-from .crypto import FrameCypher
 from .models import Greeting
 from .slackcmd import execute_slack_slash_command
+from .frameinstance import start_frame_instance
 
 # Create your views here.
 def index(request):
@@ -39,20 +30,8 @@ def db(request):
     return render(request, 'db.html', {'greetings': greetings})
 
 
-def frame(request, token):
-    try:
-        mapping_and_file = FrameCypher().decrypt(token)
-        split = mapping_and_file.find(':')
-        if split == -1:
-            return HttpResponseNotFound('400 NOT FOUND {}, split = {}, mapping_and_file={}'.format(request.path, split, mapping_and_file))
-
-        context = {
-            'mapping': mapping_and_file[:split],
-            'file_url': mapping_and_file[split:]
-        }
-        return render(request, 'frame-instance.html', context)
-    except BaseException, e:
-        return HttpResponseNotFound('400 NOT FOUND {}, error = {}'.format(request.path, e))
+def frame_instance_request(request, token):
+    return start_frame_instance(request, token)
 
 
 @csrf_exempt

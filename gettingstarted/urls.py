@@ -15,6 +15,6 @@ urlpatterns = [
     url(r'^$', hello.views.index, name='index'),
     url(r'^db', hello.views.db, name='db'),
     url(r'^slack/([a-zA-Z_][0-9a-zA-Z\-_.]*)/slash-cmd', hello.views.slack_slash_cmd_request, name='slack-slash-cmd'),
-    url(r'^frame/instance/([0-9a-zA-Z-_]+)/', hello.views.frame, name='frame-instance'),
+    url(r'^frame/instance/([0-9a-zA-Z-_]+)/', hello.views.frame_instance_request, name='frame-instance'),
     url(r'^admin/', include(admin.site.urls)),
 ]
