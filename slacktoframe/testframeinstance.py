@@ -1,3 +1,5 @@
+import json
+
 from django.core.urlresolvers import reverse, resolve, Resolver404
 from django.test import Client, TestCase
 
@@ -8,29 +10,15 @@ from slackcmd import UserSettings as TestSettings
 
 
 class FrameInstanceTest(TestCase):
-    test_username = 'test.username'
-    test_user_settings = {
-        'token': 'test.token',
-        'mapping': {
-            'text': 'text_mapping',
-            'image': 'image_mapping'
-        }
-    }
     test_url_template = '/frame/instance/{}/'
     test_txt_url = 'http://www.google.com'
     test_img_url = 'https://www.google.rs/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png'
+    test_app_id = 'abcdef'
+    test_pool_id = 123456
 
     @classmethod
     def get_frame_instance_path(cls, token):
         return reverse('frame-instance', args=[token])
-
-    @classmethod
-    def setUpClass(cls):
-        TestSettings.add(cls.test_username, cls.test_user_settings)
-
-    @classmethod
-    def tearDownClass(cls):
-        TestSettings.delete(cls.test_username)
 
     def test_frame_instance_path_resolves_to_frame_instance_with_token_arg(self):
         valid_chars_token = 'abcdefghijklmopqrstuvwxyzABCDEFGHIJKLMNOPQURSTUVWXYZ0123456789_-'
@@ -65,12 +53,42 @@ class FrameInstanceTest(TestCase):
             self.assertEqual(400, response.status_code, 'Short token {} accepted'.format(token))
             self.assertTemplateNotUsed(response, 'frame-instance.html')
 
-    def test_valid_txt_url_token(self):
-        token = FrameCypher().encrypt(self.test_user_settings['mapping']['text'], self.test_txt_url)
-
+    def test_invalid_token(self):
+        token = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-'
         response = Client().get(FrameInstanceTest.get_frame_instance_path(token))
+        self.assertEqual(400, response.status_code, 'Invalid token {} accepted'.format(token))
+        self.assertTemplateNotUsed(response, 'frame-instance.html')
+
+    def test_valid_txt_url_token(self):
+        data = FrameCypher().encrypt({
+            'file_url': self.test_txt_url,
+            'application_id': self.test_app_id,
+            'pool_id': self.test_pool_id
+        })
+
+        response = Client().get(FrameInstanceTest.get_frame_instance_path(data))
 
         self.assertEqual(200, response.status_code, '{} {}'.format(response.status_code, response.content))
         self.assertTemplateUsed(response, 'frame-instance.html')
-        self.assertContains(response, "hash: '{}',".format(self.test_user_settings['mapping']['text']))
+        self.assertContains(response, "hash: '{}',".format(self.test_app_id))
         self.assertContains(response, "fileName: '{}',".format(self.test_txt_url))
+        self.assertContains(response, "poolId: {},".format(self.test_pool_id))
+        self.assertNotContains(response, '// poolId: ID of a desired pool // optional')
+
+
+    def test_valid_txt_url_token_without_pool_id(self):
+        data = FrameCypher().encrypt({
+            'file_url': self.test_txt_url,
+            'application_id': self.test_app_id,
+            'pool_id': None
+        })
+
+        response = Client().get(FrameInstanceTest.get_frame_instance_path(data))
+
+        self.assertEqual(200, response.status_code, "{} {}".format(response.status_code, response.content))
+        self.assertTemplateUsed(response, "frame-instance.html")
+        self.assertContains(response, "hash: '{}',".format(self.test_app_id))
+        self.assertContains(response, "fileName: '{}',".format(self.test_txt_url))
+        self.assertContains(response, "// poolId: ID of a desired pool // optional")
+        self.assertNotContains(response, "	poolId:")
+        self.assertNotContains(response, "// ID of a desired pool // optional")
