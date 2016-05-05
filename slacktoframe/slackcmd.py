@@ -15,37 +15,37 @@ from .usersettings import UserSettings
 
 ###############################################################################################
 # SlackCmd exceptions
-class SlackCmdException(BaseException):
-    def __init__(self, error=''):
-        self.error = error
-
-    def get_error(self):
-        return self.error
+class SlackCmdException(Exception):
+    pass
 
 
 class SlackCmdRequestException(SlackCmdException):
-    def __init__(self, error):
-        SlackCmdException.__init__(self, "SlackCmdRequestException: {}".format(error))
+    def __init__(self, message=''):
+        super(SlackCmdRequestException, self).__init__(
+            "SlackCmdRequestException: {}".format(message))
 
 
 class SlackCmdFrameAuthenticationException(SlackCmdException):
-    def __init__(self, error=''):
-        SlackCmdException.__init__(self, "SlackCmdFrameAuthenticationException: {}".format(error))
+    def __init__(self, message=''):
+        super(SlackCmdFrameAuthenticationException, self).__init__(
+            "SlackCmdFrameAuthenticationException: {}".format(message))
 
 
 class SlackCmdFrameFileError(SlackCmdException):
-    def __init__(self, error):
-        SlackCmdException.__init__(self, 'SlackCmdFrameFileError: {}'.format(error))
+    def __init__(self, message=''):
+        super(SlackCmdFrameFileError, self).__init__(
+            'SlackCmdFrameFileError: {}'.format(message))
 
 
 class SlackCmdFrameUnsupportedFileTypeError(SlackCmdException):
-    def __init__(self, error):
-        SlackCmdException.__init__(self, 'SlackCmdFrameUnsupportedFileTypeError: {}'.format(error))
+    def __init__(self, message=''):
+        super(SlackCmdFrameUnsupportedFileTypeError, self).__init__(
+            'SlackCmdFrameUnsupportedFileTypeError: {}'.format(message))
 
 
 ###############################################################################################
 # Generic Slack command class
-class SlackCmd:
+class SlackCmd(object):
     def __init__(self, request):
         supported_arguments = [
             'token', 'team_id', 'team_domain', 'channel_id', 'channel_name',
@@ -183,6 +183,6 @@ class SlackCmdFrame(SlackCmd):
             else:
                 return command.get_file_response()
         except (SlackCmdRequestException, SlackCmdFrameFileError, SlackCmdFrameUnsupportedFileTypeError), e:
-            return HttpResponseBadRequest('400 BAD REQUEST {}'.format(e.get_error()))
+            return HttpResponseBadRequest('400 BAD REQUEST {}'.format(e.message))
         except SlackCmdFrameAuthenticationException, e:
-            return HttpResponseForbidden('403 FORBIDDEN {}'.format(e.get_error()))
+            return HttpResponseForbidden('403 FORBIDDEN {}'.format(e.message))
