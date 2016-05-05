@@ -4,30 +4,26 @@ from Crypto import Random
 from Crypto.Cipher import AES
 
 
-class FrameCypherException(BaseException):
-    def __init__(self, error=''):
-        self.error = error
-
-    def get_error(self):
-        return self.error
+class FrameCypherException(Exception):
+    pass
 
 
 class FrameCypherMessageInvalidToken(FrameCypherException):
-    def __init__(self, error=''):
-        FrameCypherException.__init__(self, 'FrameCypherMessageInvalidToken: {}'.format(error))
+    def __init__(self, message=''):
+        super(FrameCypherMessageInvalidToken, self).__init__('FrameCypherMessageInvalidToken: {}'.format(message))
 
 
 class FrameCypherMessageTooShortError(FrameCypherException):
-    def __init__(self, error=''):
-        FrameCypherException.__init__(self, 'FrameCypherMessageTooShortError: {}'.format(error))
+    def __init__(self, message=''):
+        super(FrameCypherMessageTooShortError, self).__init__('FrameCypherMessageTooShortError: {}'.format(message))
 
 
 class FrameCypherMessageInterpretError(FrameCypherException):
-    def __init__(self, error=''):
-        FrameCypherException.__init__(self, 'FrameCypherMessageInterpretError: {}'.format(error))
+    def __init__(self, message=''):
+        super(FrameCypherMessageInterpretError, self).__init__('FrameCypherMessageInterpretError: {}'.format(message))
 
 
-class FrameCypher:
+class FrameCypher(object):
     def __init__(self, key='Ilf9DroMDs5kUS0fPo5z2g=='):
         self.key = key
 

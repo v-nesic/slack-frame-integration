@@ -1,4 +1,4 @@
-class UserSettings:
+class UserSettings(object):
     __user_settings = {
         'neske-pilot-project': {
             'token': 'Cb7u0tsogeepryhYkMZwElC5',

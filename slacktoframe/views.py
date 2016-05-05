@@ -20,4 +20,4 @@ def frame_instance_request(request, token):
     try:
         return render(request, 'frame-instance.html', FrameCypher().decrypt(token))
     except FrameCypherException, e:
-        return HttpResponseBadRequest('400 NOT FOUND {}, error = {}'.format(request.path, e.get_error()))
+        return HttpResponseBadRequest('400 NOT FOUND {}, error = {}'.format(request.path, e.message))
