@@ -1,12 +1,9 @@
-import json
-
 from django.core.urlresolvers import reverse, resolve, Resolver404
 from django.test import Client, TestCase
 
 import slacktoframe.views
 
 from crypto import FrameCypher
-from slackcmd import UserSettings as TestSettings
 
 
 class FrameInstanceTest(TestCase):
@@ -74,7 +71,6 @@ class FrameInstanceTest(TestCase):
         self.assertContains(response, "fileName: '{}',".format(self.test_txt_url))
         self.assertContains(response, "poolId: {},".format(self.test_pool_id))
         self.assertNotContains(response, '// poolId: ID of a desired pool // optional')
-
 
     def test_valid_txt_url_token_without_pool_id(self):
         data = FrameCypher().encrypt({
