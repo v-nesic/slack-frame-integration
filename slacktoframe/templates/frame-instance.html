@@ -6,12 +6,12 @@
 <body>
 
 <h1>Connecting to the requested FRAME instance</h1>
-<h2>Current session</h2>
-<div id="current_session"></div>
-<h2>Previous sessions</h2>
-<div id="connected_sessions"></div>
 <h2>Capacity info</h2>
 <div id="capacity_info"></div>
+<h2>Connected sessions</h2>
+<div id="connected_sessions"></div>
+<h2>Current session events</h2>
+<div id="current_session"></div>
 
 <script src="https://rawgit.com/ScottHamper/Cookies/1.2.2/dist/cookies.min.js"></script>
 <script src="https://app.fra.me/embed/frame_app.js"></script>
@@ -21,10 +21,10 @@
 // Track sessions which are not properly closed
 function getConnectedSessions() {
 	sessions = Cookies.get('connectedFrameSessions');
-	return sessions != undefined ? sessions.split(':') : [];
+	return sessions == undefined || sessions == '' ? [] : sessions.split(':')
 }
 
-function addActiveSession(sessionId) {
+function sessionConnected(sessionId) {
     if (sessionId != undefined && sessionId != null) {
         connectedSessions = getConnectedSessions();
         for(i = 0; i < connectedSessions.length; ++i) {
@@ -40,7 +40,7 @@ function addActiveSession(sessionId) {
     }
 }
 
-function removeActiveSession(sessionId) {
+function sessionClosed(sessionId) {
     if (sessionId != undefined && sessionId != null) {
         connectedSessions = getConnectedSessions();
         for(i = 0; i < connectedSessions.length; ++i) {
@@ -55,17 +55,66 @@ function removeActiveSession(sessionId) {
     }
 }
 
+function enableReconnectButtons() {
+    $('.connectSessionButton').prop('disabled', false);
+}
+
+function disableReconnectButtons() {
+    $('.connectSessionButton').prop('disabled', false);
+}
+
+function showInfoMessage(message) {
+    if (frameApp.sessionId)
+        $('#current_session').html(frameApp.sessionId + ': ' + message + '<br>' + $('#current_session').html())
+    else
+        $('#current_session').html(message + '<br>' + $('#current_session').html())
+    console.info(message)
+}
+
 function showConnectedSessions(sessions) {
-    var table = $('<table/>').addClass('connectedSessionsTable');
-    for(i = 0; i < sessions.length; ++i) {
-        var row = $('<tr/>').addClass('connectedSessionsTableRow');
-        cell = $('<td/>');
-        cell.html(sessions[i]);
-        row.append(cell);
-        //row.append($('<td>' + sessions[i] + '</td>'));
-        row.append($('<td><input type="button" id="connect_session' + i + '" value="Connect"></td>'));
-        row.append($('<td><input type="button" id="forget_session' + i + '" value="Forget"></td>'));
-        table.append(row);
+    if (sessions != undefined && sessions.length > 0) {
+        var table = $('<table/>', {class: 'connectedSessionsTable'});
+
+        for(i = 0; i < sessions.length; ++i) {
+            connect_button = $('<input/>', {
+                type: 'button',
+                class: 'connectSessionButton',
+                id: 'connect_session'+i,
+                value: 'Connect'
+            }).on('click', function() {
+                disableReconnectButtons();
+                frameApp.resumeSession($(this).data('session-id'))
+                .then(function() {
+                    console.log("The session is resumed");
+                })
+                .catch(function(err) {
+                    console.log("Something went wrong: " + err.toString());
+                });
+            })
+            .data('session-id', sessions[i])
+            .prop('disabled', true)
+            forget_button = $('<input/>', {
+                type: 'button',
+                class: 'forgetSessionButton',
+                id: 'forget_session'+i,
+                value: 'Forget'
+            }).data(
+                'session-id', sessions[i]
+            ).on('click', function() {
+                showConnectedSessions(sessionClosed($(this).data('session-id')));
+            });
+
+            var row = $('<tr/>', {class: 'connectedSessionsTableRow'});
+            row.append($('<td/>', {class: 'connectedSessionsTableCell', html: sessions[i]}));
+            row.append($('<td/>', {class: 'connectedSessionsTableCell', html: connect_button}));
+            row.append($('<td/>', {class: 'connectedSessionsTableCell', html: forget_button}));
+
+            table.append(row);
+        }
+
+        $('#connected_sessions').html(table)
+    } else {
+        $('#connected_sessions').html('')
     }
 }
 
@@ -89,30 +138,31 @@ var frameApp = new frameApi.FrameApp({
 
 // bind events
 frameApp.bind(FrameApp.EVENT_ERROR, function(e) {
-	alert(e.message);
+    showInfoMessage('<b>Error:</b><br>'+e.message);
 });
 frameApp.bind(FrameApp.EVENT_LOADING_STARTED, function() {
-	console.info('Loading started');
+	showInfoMessage('Loading');
 });
 frameApp.bind(FrameApp.EVENT_LOADING_DONE, function() {
-	console.info('Loading done.');
+	showInfoMessage('Loaded');
 });
 frameApp.bind(FrameApp.EVENT_CLOSED, function() {
-	console.info('Session closed.');
-	showConnectedSessions(removeActiveSession(frameApp.sessionId));
+	showInfoMessage('Closed');
+	showConnectedSessions(sessionClosed(frameApp.sessionId));
+	enableReconnectButtons();
 });
 frameApp.bind(FrameApp.EVENT_BROADCAST_SESSION_ID, function(sessionId) {
-	console.info('Broadcast session id: ' + sessionId);
-	showConnectedSessions(addActiveSession(sessionId));
+	showInfoMessage('Broadcast session id: ' + sessionId);
+	showConnectedSessions(sessionConnected(sessionId));
 });
 frameApp.bind(FrameApp.EVENT_BROADCAST_SHARE_URL, function(url) {
-	console.info('Broadcast share url: ' + url);
+	showInfoMessage('Broadcast share url: ' + url);
 });
 frameApp.bind(FrameApp.EVENT_TERMINAL_SHOWN, function() {
-	console.info('Terminal shown!');
+	showInfoMessage('Terminal shown!');
 });
 frameApp.bind(FrameApp.EVENT_OPEN_URL, function(url) {
-	console.info("Open url: " + url);
+	showInfoMessage("Open url: " + url);
 });
 
 $(document).ready(function() {
@@ -130,26 +180,11 @@ $(document).ready(function() {
 		})
 		.catch(function(error) {
 			console.error("Failed to start session: " + error.toString());
+			enableReconnectButtons();
 		});
-
-		// try to close current connection before the page is unloaded
-		// to avoid stale instances
-		//$(window).bind('beforeunload', function() {
-		//    try {
-		//        frameApp.closeSession();
-		//        console.log("Closing current session");
-		//    } catch (err) {
-		//        console.log("Failed to close current session: " + err.toString());
-		//    }
-		//})
 
 		// Called each 3 seconds to return basic session parameters
 		setInterval(function() {
-		    if (frameApp.sessionId != undefined && frameApp.sessionId != null) {
-    		    $('#current_session').html(frameApp.sessionId);
-		    } else {
-    		    $('#current_session').html('');
-		    }
 			console.log("Getting session id: " + frameApp.sessionId);
 			frameApp.getCapacityInfoAsync().then(function(capacityInfo) {
 				console.log("Capacity info received:");
